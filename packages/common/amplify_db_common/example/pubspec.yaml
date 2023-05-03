@@ -28,3 +28,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  plugin:
+    # We use the same class names as sqlite3_flutter_libs since users should never depend on both packages at the same
+    # time, not even transitively.
+    platforms:
+      android:
+        package: eu.simonbinder.sqlite3_flutter_libs
+        pluginClass: Sqlite3FlutterLibsPlugin
+      ios:
+        pluginClass: Sqlite3FlutterLibsPlugin

@@ -16,6 +16,7 @@ QueryExecutor connect({
   return LazyDatabase(() async {
     final resolvedPath =
         await path ?? (await getApplicationSupportDirectory()).path;
+    print('resolved path is: $resolvedPath');
     return base.connect(name: name, path: resolvedPath);
   });
 }
