@@ -16,6 +16,8 @@ dependencies:
     sdk: flutter
   path: ^1.8.2
   path_provider: ^2.0.11
+  sqlcipher_flutter_libs: ^0.5.4
+
 
 dev_dependencies:
   amplify_lints: ">=2.0.3 <2.1.0"
@@ -32,3 +34,5 @@ flutter:
         pluginClass: AmplifyDbCommonPlugin
       windows:
         pluginClass: AmplifyDbCommonPlugin
+      ios:
+        pluginClass: Sqlite3FlutterLibsPlugin

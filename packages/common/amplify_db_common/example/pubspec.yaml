@@ -11,6 +11,11 @@ dependencies:
   drift: ">=2.4.0 <2.7.0"
   flutter:
     sdk: flutter
+  path_provider: ^2.0.11
+
+  #sqlcipher_flutter_libs:
+    #path: ../../sqlcipher_flutter_libs
+
 
 # Needed to support both Flutter 3.3 + 3.7 in CI.
 # TODO(dnys1): Remove when Flutter 3.3 is no longer supported
@@ -28,12 +33,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  plugin:
-    # We use the same class names as sqlite3_flutter_libs since users should never depend on both packages at the same
-    # time, not even transitively.
-    platforms:
-      android:
-        package: eu.simonbinder.sqlite3_flutter_libs
-        pluginClass: Sqlite3FlutterLibsPlugin
-      ios:
-        pluginClass: Sqlite3FlutterLibsPlugin
+

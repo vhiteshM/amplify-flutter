@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:amplify_db_common_example/db.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -43,6 +44,8 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _incrementCount() async {
+    print((await getApplicationSupportDirectory()).path);
+
     final newCount = await _db.incrementCount();
     setState(() {
       _count = newCount;

@@ -22,6 +22,8 @@ QueryExecutor connect({
 }) {
   assert(path != null, 'path cannot be null on vm.');
 
+  print('path: $path');
+
   return DatabaseConnection.delayed(
     Future.sync(() async {
       final resolvedPath = await path;
