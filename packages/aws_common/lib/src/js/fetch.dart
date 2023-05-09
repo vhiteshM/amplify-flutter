@@ -1,75 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+import 'dart:typed_data';
+
 import 'package:aws_common/aws_common.dart';
 import 'package:aws_common/src/js/abort.dart';
 import 'package:aws_common/src/js/common.dart';
 import 'package:aws_common/src/js/promise.dart';
 import 'package:aws_common/src/js/readable_stream.dart';
-import 'package:js/js.dart';
-import 'package:js/js_util.dart' as js_util;
-
-/// How a [Request] will interact with the browser's HTTP cache.
-enum RequestCache with JSEnum {
-  /// The browser looks for a matching request in its HTTP cache.
-  ///
-  /// - If there is a match and it is fresh, it will be returned from the cache.
-  /// - If there is a match but it is stale, the browser will make a conditional
-  ///   request to the remote server. If the server indicates that the resource
-  ///   has not changed, it will be returned from the cache. Otherwise the
-  ///   resource will be downloaded from the server and the cache will be
-  ///   updated.
-  /// - If there is no match, the browser will make a normal request, and will
-  ///   update the cache with the downloaded resource.
-  default$,
-
-  /// The browser looks for a matching request in its HTTP cache.
-  ///
-  /// - If there is a match, fresh or stale, it will be returned from the cache.
-  /// - If there is no match, the browser will make a normal request, and will
-  ///   update the cache with the downloaded resource.
-  forceCache,
-
-  /// The browser looks for a matching request in its HTTP cache.
-  ///
-  /// - If there is a match, fresh or stale, the browser will make a conditional
-  ///   request to the remote server. If the server indicates that the resource
-  ///   has not changed, it will be returned from the cache. Otherwise the
-  ///   resource will be downloaded from the server and the cache will be
-  ///   updated.
-  /// - If there is no match, the browser will make a normal request, and will
-  ///   update the cache with the downloaded resource.
-  noCache,
-
-  /// The browser fetches the resource from the remote server without first
-  /// looking in the cache, and will not update the cache with the downloaded
-  /// resource.
-  noStore,
-
-  /// The browser looks for a matching request in its HTTP cache.
-  ///
-  /// - If there is a match, fresh or stale, it will be returned from the cache.
-  /// - If there is no match, the browser will respond with a 504 Gateway
-  ///   timeout status.
-  ///
-  /// The "only-if-cached" mode can only be used if the request's `mode` is
-  /// "same-origin". Cached redirects will be followed if the request's
-  /// `redirect` property is "follow" and the redirects do not violate the
-  /// "same-origin" mode.
-  onlyIfCached,
-
-  /// The browser fetches the resource from the remote server without first
-  /// looking in the cache, *but then will* update the cache with the downloaded
-  /// resource.
-  reload,
-}
 
 /// Controls what browsers do with credentials (cookies, HTTP authentication
 /// entries, and TLS client certificates).
 enum RequestCredentials with JSEnum {
-  /// The default behavior.
-  default$,
-
   /// Tells browsers to include credentials in both same- and cross-origin
   /// requests, and always use any credentials sent back in responses.
   include,
@@ -96,64 +40,6 @@ enum RequestRedirect with JSEnum {
 
   /// Caller intends to process the response in another context.
   manual,
-}
-
-/// The type of content being requested in a [Request].
-enum RequestDestination with JSEnum {
-  /// The default value of destination is used for destinations that do not have
-  /// their own value.
-  default$,
-
-  /// The target is audio data.
-  audio,
-
-  /// The target is data being fetched for use by an audio worklet.
-  audioworklet,
-
-  /// The target is a document (HTML or XML).
-  document,
-
-  /// The target is embedded content.
-  embed,
-
-  /// The target is a font.
-  font,
-
-  /// The target is an image.
-  image,
-
-  /// The target is a manifest.
-  manifest,
-
-  /// The target is an object.
-  object,
-
-  /// The target is a paint worklet.
-  paintworklet,
-
-  /// The target is a report.
-  report,
-
-  /// The target is a script.
-  script,
-
-  /// The target is a shared worker.
-  sharedworker,
-
-  /// The target is a style.
-  style,
-
-  /// The target is an HTML `<track>`.
-  track,
-
-  /// The target is video data.
-  video,
-
-  /// The target is a worker.
-  worker,
-
-  /// The target is an XSLT transform.
-  xslt,
 }
 
 /// The mode used for a [Request].
@@ -191,22 +77,13 @@ enum RequestMode with JSEnum {
 abstract class RequestInit {
   /// {@macro aws_common.js.request_init}
   factory RequestInit({
-    RequestCache cache = RequestCache.default$,
-    RequestCredentials credentials = RequestCredentials.default$,
-    RequestMode mode = RequestMode.default$,
-    RequestDestination destination = RequestDestination.default$,
-    RequestRedirect redirect = RequestRedirect.default$,
-
-    /// A string specifying the referrer of the request. This can be a
-    /// same-origin URL, about:client, or an empty string.
-    String? referrer,
-
-    /// Contains the subresource integrity value of the request.
-    String? integrity,
+    RequestCredentials credentials = RequestCredentials.include,
+    RequestMode mode = RequestMode.cors,
+    RequestRedirect redirect = RequestRedirect.follow,
 
     /// The keepalive option can be used to allow the request to outlive the
     /// page.
-    bool? keepalive,
+    bool keepalive = false,
     AbortSignal? signal,
     AWSHttpMethod method = AWSHttpMethod.get,
     Map<String, String>? headers,
@@ -215,45 +92,41 @@ abstract class RequestInit {
     // `fetch` does not allow bodies for these methods.
     final cannotHaveBody =
         method == AWSHttpMethod.get || method == AWSHttpMethod.head;
-    if (cannotHaveBody) {
-      body = null;
-    }
-    if (body is Stream<List<int>>) {
-      body = body.asReadableStream();
-    }
+    final jsBody = switch (body) {
+      == null || _ when cannotHaveBody => null,
+      Stream<List<int>> _ => body.asReadableStream(),
+      Uint8List _ => body.toJS,
+      List<int> _ => Uint8List.fromList(body).toJS,
+      _ => throw ArgumentError('Invalid body: $body (${body.runtimeType})'),
+    };
     return RequestInit._(
-      cache: cache.jsValue,
       credentials: credentials.jsValue,
       mode: mode.jsValue,
-      destination: destination.jsValue,
       redirect: redirect.jsValue,
-      referrer: referrer ?? undefined,
-      headers: headers != null ? js_util.jsify(headers) : undefined,
-      integrity: integrity ?? undefined,
-      keepalive: keepalive ?? undefined,
-      method: method.value,
-      signal: signal ?? undefined,
-      body: body ?? undefined,
+      headers: headers.jsify() as JSObject?,
+      method: method.value.toJS,
+      signal: signal,
+      keepalive: keepalive.toJS,
+      body: jsBody ?? jsUndefined(),
       // Added for full compatibility with all `fetch` impls:
       // https://developer.chrome.com/articles/fetch-streaming-requests/#half-duplex
-      duplex: 'half',
+      duplex: 'half'.toJS,
     );
   }
 
   external factory RequestInit._({
-    String? cache,
-    String? credentials,
-    String? mode,
-    String? destination,
-    String? redirect,
-    String? referrer,
-    Object? headers,
-    String? integrity,
-    String? duplex,
+    JSString? cache,
+    JSString? credentials,
+    JSString? mode,
+    JSString? redirect,
+    JSString? referrer,
+    JSObject? headers,
+    JSString? integrity,
+    JSString? duplex,
     AbortSignal? signal,
-    bool? keepalive,
-    String? method,
-    Object? body,
+    JSBoolean? keepalive,
+    JSString? method,
+    JSObject? body,
   });
 }
 
@@ -266,43 +139,46 @@ abstract class RequestInit {
 /// {@endtemplate}
 @JS()
 @staticInterop
-abstract class Headers {
+abstract class Headers implements JSObject {
   /// {@macro aws_common.js.headers}
-  external factory Headers(Map<String, String> headers);
+  factory Headers(Map<String, String> headers) =>
+      Headers._(headers.jsify() as JSObject);
+
+  external factory Headers._(JSObject headers);
 }
 
 /// {@macro aws_common.js.headers}
 extension PropsHeaders on Headers {
   /// Alias for [get].
-  String? operator [](String name) => get(name);
+  String? operator [](String name) => get(name.toJS)?.toDart;
 
   /// Alias for [set].
-  void operator []=(String name, String value) => set(name, value);
+  void operator []=(String name, String value) => set(name.toJS, value.toJS);
 
   /// Appends a new value onto an existing header inside a Headers object, or
   /// adds the header if it does not already exist.
-  external void append(String name, String value);
+  external JSVoid append(JSString name, JSString value);
 
   /// Deletes a header.
-  external void delete(String name);
+  external JSVoid delete(JSString name);
 
   /// Returns a String sequence of all the values of a header within a
   /// [Headers] object with a given [name].
-  external String? get(String name);
+  external JSString? get(JSString name);
 
   /// Returns a boolean stating whether a [Headers] object contains a certain
   /// [header].
-  external bool has(String header);
+  external JSBoolean has(JSString header);
 
   /// Sets a new value for an existing header inside a [Headers] object, or adds
   /// the header if it does not already exist.
-  external void set(String name, String value);
+  external JSVoid set(JSString name, JSString value);
 
   /// Executes [callback] once for each array element.
   void forEach(
-    void Function(String value, String key, Headers parent) callback,
+    JSVoid Function(JSString value, JSString key, Headers parent) callback,
   ) =>
-      js_util.callMethod(this, 'forEach', [allowInterop(callback)]);
+      callMethod('forEach'.toJS, callback.toJS);
 }
 
 /// {@template aws_common.js.request}
@@ -312,7 +188,7 @@ extension PropsHeaders on Headers {
 @staticInterop
 abstract class Request {
   /// {@macro aws_common.js.request}
-  external factory Request(String url, [RequestInit? init]);
+  external factory Request(JSString url, [RequestInit? init]);
 }
 
 /// {@template aws_common.js.response}
@@ -321,9 +197,9 @@ abstract class Request {
 /// {@endtemplate}
 @JS()
 @staticInterop
-abstract class Response {
+abstract class Response implements JSObject {
   /// {@macro aws_common.js.response}
-  external factory Response(String url, [RequestInit? init]);
+  external factory Response(JSString url, [RequestInit? init]);
 }
 
 /// Used to expand [Response] and treat `Response.body` as a `late final`
@@ -334,34 +210,34 @@ final Expando<ReadableStreamView> _responseStreams = Expando('ResponseStreams');
 extension PropsResponse on Response {
   /// The response's body as a Dart [Stream].
   ReadableStreamView get body => _responseStreams[this] ??=
-      js_util.getProperty<ReadableStream?>(this, 'body')?.stream ??
+      getProperty<ReadableStream?>('body'.toJS)?.stream ??
           const ReadableStreamView.empty();
 
   /// The response's headers.
   Map<String, String> get headers {
     final Map<String, String> headers = CaseInsensitiveMap({});
-    js_util.getProperty<Headers>(this, 'headers').forEach((value, key, _) {
-      headers[key] = value;
+    getProperty<Headers>('headers'.toJS).forEach((value, key, _) {
+      headers[key.toDart] = value.toDart;
     });
     return headers;
   }
 
   /// The status code of the response.
-  external int get status;
+  external JSNumber get status;
 
   /// The status message corresponding to [status].
-  external String get statusText;
+  external JSString get statusText;
 
   /// Whether or not the response is the result of a redirect.
-  external bool get redirected;
+  external JSBoolean get redirected;
 }
 
 @JS('fetch')
-external Promise<Response> _fetch(String url, [RequestInit? init]);
+external Promise<Response> _fetch(JSString url, [RequestInit? init]);
 
 /// The global fetch() method starts the process of fetching a resource from
 /// the network, returning a promise which is fulfilled once the response is
 /// available.
 Future<Response> fetch(String url, [RequestInit? init]) {
-  return _fetch(url, init).future;
+  return _fetch(url.toJS, init).future;
 }

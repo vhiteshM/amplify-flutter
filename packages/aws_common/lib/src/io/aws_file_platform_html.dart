@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'dart:async';
-import 'dart:html';
+import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:async/async.dart';
 import 'package:aws_common/aws_common.dart';
+import 'package:web/web.dart';
 
 // Dart io.File openRead chunk size
 const _readStreamChunkSize = 64 * 1024;
@@ -19,7 +21,7 @@ class AWSFilePlatform extends AWSFile {
   })  : _stream = null,
         _inputFile = file,
         _inputBlob = null,
-        _size = file.size,
+        _size = file.size.toDart.toInt(),
         super.protected();
 
   /// Creates an [AWSFile] from html [Blob].
@@ -29,7 +31,7 @@ class AWSFilePlatform extends AWSFile {
   })  : _stream = null,
         _inputBlob = blob,
         _inputFile = null,
-        _size = blob.size,
+        _size = blob.size.toDart.toInt(),
         super.protected();
 
   /// {@macro amplify_core.io.aws_file.from_path}
@@ -63,7 +65,10 @@ class AWSFilePlatform extends AWSFile {
     super.name,
     super.contentType,
   })  : _stream = null,
-        _inputBlob = Blob([data], contentType),
+        _inputBlob = Blob(
+          [Uint8List.fromList(data).toJS].toJS,
+          BlobPropertyBag(type: (contentType ?? '').toJS),
+        ),
         _inputFile = null,
         _size = data.length,
         super.protected(
@@ -110,7 +115,7 @@ class AWSFilePlatform extends AWSFile {
     }
 
     final resolvedBlob = await _resolvedBlob;
-    return resolvedBlob.size;
+    return resolvedBlob.size.toDart.toInt();
   }
 
   @override
@@ -126,9 +131,9 @@ class AWSFilePlatform extends AWSFile {
         final path = super.path;
 
         if (file != null) {
-          blobType = file.type;
+          blobType = file.type.toDart;
         } else if (path != null) {
-          blobType = (await _resolvedBlob).type;
+          blobType = (await _resolvedBlob).type.toDart;
         }
 
         // on Web blob.type may return an empty string
@@ -175,7 +180,7 @@ class AWSFilePlatform extends AWSFile {
     }
 
     final resolvedBlob = await _resolveBlobFromPath();
-    _size = resolvedBlob.size;
+    _size = resolvedBlob.size.toDart.toInt();
     _resolvedBlobFromPath = resolvedBlob;
 
     return resolvedBlob;
@@ -187,21 +192,7 @@ class AWSFilePlatform extends AWSFile {
       throw const InvalidFileException();
     }
 
-    late HttpRequest request;
-    try {
-      request = await HttpRequest.request(path, responseType: 'blob');
-    } on ProgressEvent catch (e) {
-      if (e.type == 'error') {
-        throw const InvalidFileException(
-          message: 'Could resolve file blob from provide path.',
-          recoverySuggestion:
-              'Ensure the file `path` in Web is an accessible url.',
-        );
-      }
-      rethrow;
-    }
-
-    final retrievedBlob = request.response as Blob?;
+    final retrievedBlob = (await Request(path.toJS).blob().toDart) as Blob?;
 
     if (retrievedBlob == null) {
       throw const InvalidFileException(
@@ -211,7 +202,7 @@ class AWSFilePlatform extends AWSFile {
       );
     }
 
-    _size = retrievedBlob.size;
+    _size = retrievedBlob.size.toDart.toInt();
 
     return retrievedBlob;
   }
@@ -223,19 +214,23 @@ class AWSFilePlatform extends AWSFile {
   }) async* {
     var blob = await sourceBlob;
     if (start != null) {
-      blob = blob.slice(start, end ?? blob.size);
+      blob = blob.slice(start.toJS, end?.toJS ?? blob.size);
     }
     final fileReader = FileReader();
     var currentPosition = 0;
 
-    while (currentPosition < blob.size) {
-      final readRange = currentPosition + _readStreamChunkSize > blob.size
-          ? blob.size
-          : currentPosition + _readStreamChunkSize;
-      final blobToRead = blob.slice(currentPosition, readRange);
+    while (currentPosition < blob.size.toDart) {
+      final readRange =
+          currentPosition + _readStreamChunkSize > blob.size.toDart
+              ? blob.size.toDart
+              : currentPosition + _readStreamChunkSize;
+      final blobToRead =
+          blob.slice(currentPosition.toJS, readRange.toDouble().toJS);
       fileReader.readAsArrayBuffer(blobToRead);
-      await fileReader.onLoad.first;
-      yield fileReader.result as List<int>;
+      final onload = Completer<void>.sync();
+      fileReader.onload = ((JSAny? _) => onload.complete()).toJS;
+      await onload.future;
+      yield (fileReader.result as JSArrayBuffer).toDart.asUint8List();
       currentPosition += _readStreamChunkSize;
     }
   }

@@ -2,3 +2,6 @@ override_platforms:
   firefox:
     settings:
       arguments: -headless
+  experimental-chrome-wasm:
+    settings:
+      executable: "/Applications/Google\ Chrome\ Beta.app/Contents/MacOS/Google\ Chrome\ Beta"

@@ -2,15 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'dart:async';
-
-import 'package:js/js.dart';
-import 'package:js/js_util.dart' as js_util;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 /// A [Promise] executor callback.
-typedef Executor<T> = void Function(
-  void Function(T) resolve,
-  void Function(Object) reject,
+typedef Executor<T extends JSAny?> = void Function(
+  PromiseResolver<T> resolve,
+  PromiseRejector reject,
 );
+
+@JS()
+@staticInterop
+abstract class PromiseResolver<T extends JSAny?> implements JSFunction {}
+
+extension PromiseResolveProps<T extends JSAny?> on PromiseResolver<T> {
+  void resolve([T? result]) => callMethod('call'.toJS, this, result);
+}
+
+@JS()
+@staticInterop
+abstract class PromiseRejector implements JSFunction {}
+
+extension PromiseRejectorProps on PromiseRejector {
+  void reject(Object? error) => callMethod('call'.toJS, this, error.jsify());
+}
 
 /// {@template aws_common.js.promise}
 /// Represents the eventual completion (or failure) of an asynchronous operation
@@ -18,36 +33,26 @@ typedef Executor<T> = void Function(
 /// {@endtemplate}
 @JS()
 @staticInterop
-abstract class Promise<T> {
+abstract class Promise<T extends JSAny?> {
   /// Creates a JS Promise.
-  factory Promise(Executor<T> executor) => Promise._(allowInterop(executor));
+  factory Promise(Executor<T> executor) => Promise._(executor.toJS);
 
-  external factory Promise._(Executor<T> executor);
+  external factory Promise._(JSFunction executor);
 
   /// Creates a Promise from a Dart [future].
-  ///
-  /// If [captureError] is `true`, all errors will be caught by the promise
-  /// and not reported as unhandled errors in the current [Zone]. This can
-  /// decrease the visibility of errors in Dart code depending on the level of
-  /// integration with JS APIs and their error-handling specifics.
-  factory Promise.fromFuture(
-    Future<T> future, {
-    bool captureError = false,
-  }) =>
-      Promise((resolve, reject) async {
+  factory Promise.fromFuture(Future<T> future) =>
+      Promise<T>((resolver, rejector) async {
         try {
-          resolve(await future);
+          resolver.resolve(await future);
         } on Object catch (e) {
-          reject(e);
-          if (!captureError) {
-            rethrow;
-          }
+          rejector.reject(e);
         }
       });
 }
 
 /// {@macro aws_common.js.promise}
-extension PropsPromise<T> on Promise<T> {
+extension PropsPromise<T extends JSAny?> on Promise<T> {
   /// Resolves `this` as a Dart [Future].
-  Future<T> get future => js_util.promiseToFuture(this);
+  Future<T> get future =>
+      (this as JSPromise).toDart.then((value) => value as T);
 }

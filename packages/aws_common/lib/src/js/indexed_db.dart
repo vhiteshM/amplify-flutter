@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:js_util' as js_util;
 
 import 'package:aws_common/src/js/common.dart';
-import 'package:js/js.dart';
 
 /// The global read-only [IDBFactory] instance.
 @JS()
@@ -61,12 +61,12 @@ extension PropsIDBRequest<T> on IDBRequest<T> {
 
   /// Fired when an IDBRequest succeeds.
   set onsuccess(EventHandler newValue) {
-    js_util.setProperty(this, 'onsuccess', allowInterop(newValue));
+    js_util.setProperty(this, 'onsuccess', js_util.allowInterop(newValue));
   }
 
   /// Fired when an error caused a request to fail.
   set onerror(EventHandler newValue) {
-    js_util.setProperty(this, 'onerror', allowInterop(newValue));
+    js_util.setProperty(this, 'onerror', js_util.allowInterop(newValue));
   }
 
   /// Returns a [Future] which completes with the [result] of this request.
@@ -97,7 +97,11 @@ extension PropsIDBOpenDBRequest on IDBOpenDBRequest {
   /// Fired when an attempt was made to open a database with a version number
   /// higher than its current version.
   set onupgradeneeded(EventHandler<IDBVersionChangeEvent> newValue) {
-    js_util.setProperty(this, 'onupgradeneeded', allowInterop(newValue));
+    js_util.setProperty(
+      this,
+      'onupgradeneeded',
+      js_util.allowInterop(newValue),
+    );
   }
 }
 

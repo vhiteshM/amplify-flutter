@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:typed_data';
 
 import 'package:async/async.dart';
@@ -121,7 +122,7 @@ class AWSHttpClientImpl extends AWSHttpClient {
         streamView.forward(bodyController, cancelOnError: true),
       );
       final streamedResponse = AWSStreamedHttpResponse(
-        statusCode: resp.status,
+        statusCode: resp.status.toDart.toInt(),
         headers: resp.headers,
         body: bodyController.stream.tap(
           null,

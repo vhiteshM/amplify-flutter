@@ -4,6 +4,7 @@
 @TestOn('browser')
 
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:typed_data';
 
 import 'package:aws_common/src/js/readable_stream.dart';
@@ -15,8 +16,8 @@ void main() {
       UnderlyingSource(
         start: (controller) {
           controller
-            ..enqueue(Uint8List.fromList([1, 2, 3, 4, 5]))
-            ..enqueue(Uint8List.fromList([6, 7, 8, 9, 0]))
+            ..enqueue(Uint8List.fromList([1, 2, 3, 4, 5]).toJS)
+            ..enqueue(Uint8List.fromList([6, 7, 8, 9, 0]).toJS)
             ..close();
         },
       ),

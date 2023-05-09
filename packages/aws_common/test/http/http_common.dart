@@ -22,8 +22,7 @@ void clientTest(
     StreamQueue<Object?> Function() getHttpServerQueue,
     StreamChannel<Object?> Function() getHttpServerChannel,
     Uri Function(String) createUri,
-  )
-      testCases, {
+  ) testCases, {
   Object? skip,
 }) {
   AWSLogger().logLevel = LogLevel.verbose;
@@ -52,7 +51,7 @@ void clientTest(
             ..sink.add(protocol.value)
             ..sink.add(secure);
           httpServerQueue = StreamQueue(httpServerChannel.stream);
-          host = 'localhost:${await httpServerQueue.next}';
+          host = 'localhost:${(await httpServerQueue.next as num).toInt()}';
           client = debugClient..supportedProtocols = supportedProtocols;
         });
         tearDown(() async {

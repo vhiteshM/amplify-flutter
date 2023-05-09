@@ -35,4 +35,10 @@ const bool zReleaseMode = bool.fromEnvironment('dart.vm.product');
 /// Since JS does not support integers, an int and a double will be identical
 /// when representing the same value. However, this will not be true for all
 /// other compilation targets.
-const bool zIsWeb = identical(0, 0.0);
+const bool zIsWeb = bool.fromEnvironment('dart.library.js_interop');
+
+/// Whether we are running from a wasm module compiled with dart2wasm.
+/// Note: Currently the ffi library is available from dart2wasm but not dart2js
+/// or dartdevc.
+const bool zIsWasm = bool.fromEnvironment('dart.library.js_interop') &&
+    bool.fromEnvironment('dart.library.ffi');

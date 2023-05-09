@@ -4,30 +4,19 @@
 // ignore_for_file: avoid_classes_with_only_static_members, prefer_void_to_null
 
 import 'dart:async';
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:aws_common/src/util/recase.dart';
-import 'package:js/js.dart';
 
 /// The JS `undefined`.
-@JS()
-external Null get undefined;
+T? jsUndefined<T extends JSAny?>() =>
+    globalJSObject.getProperty<T?>('undefined'.toJS);
 
 /// An [Enum] representing a nullable JS value.
 mixin JSEnum on Enum {
   /// The JS representation of `this`.
-  ///
-  /// Default values are represented as `undefined`, as opposed to `null` which
-  /// can be interpreted incorrectly by DOM APIs. Non-default values are
-  /// representated as the parameter-cased [name].
-  String? get jsValue {
-    switch (name) {
-      case r'default$':
-        return undefined;
-      default:
-        return name.paramCase;
-    }
-  }
+  JSString get jsValue => name.paramCase.toJS;
 }
 
 /// Refers to either [window] or the worker's global scope, depending on the
@@ -36,14 +25,15 @@ mixin JSEnum on Enum {
 external GlobalScope get self;
 
 /// Whether the current script is running in a web worker.
-final bool zIsWebWorker = js_util.getProperty<Window?>(self, 'window') == null;
+final bool zIsWebWorker =
+    globalJSObject.getProperty<Window?>('window'.toJS) == null;
 
 /// The [Window] object of the current context.
 ///
 /// Throws a [StateError] if unavailable in this context. Use [zIsWebWorker]
 /// to check whether this will throw or not.
 Window get window {
-  final window = js_util.getProperty<Window?>(self, 'window');
+  final window = globalJSObject.getProperty<Window?>('window'.toJS);
   if (window == null) {
     throw StateError('window is not available in this context');
   }
@@ -55,7 +45,7 @@ Window get window {
 /// Throws a [StateError] if unavailable. Use [zIsWebWorker] to check whether
 /// this will throw or not.
 Document get document {
-  final document = js_util.getProperty<Document?>(self, 'document');
+  final document = globalJSObject.getProperty<Document?>('document'.toJS);
   if (document == null) {
     throw StateError('document is not available in this context');
   }
@@ -73,7 +63,7 @@ abstract class Window implements GlobalScope {}
 extension PropsWindow on Window {
   /// Loads a specified resource into a new or existing browsing context
   /// (that is, a tab, a window, or an iframe) under a specified name.
-  external void open([String? url, String? target]);
+  external JSVoid open([JSString? url, JSString? target]);
 }
 
 /// {@template aws_common.js.document}
@@ -82,7 +72,7 @@ extension PropsWindow on Window {
 /// {@endtemplate}
 @JS()
 @staticInterop
-abstract class Document {}
+abstract class Document implements JSObject {}
 
 /// {@macro aws_common.js.document}
 extension PropsDocument on Document {
@@ -90,7 +80,7 @@ extension PropsDocument on Document {
   /// specified selector, or group of selectors.
   ///
   /// If no matches are found, `null` is returned.
-  external Element? querySelector(String selectors);
+  external Element? querySelector(JSString selectors);
 }
 
 /// {@template aws_common.js.element}
@@ -110,7 +100,7 @@ extension PropsElement on Element {
   ///
   /// If the given attribute does not exist, the value returned will either be
   /// `null` or `""` (the empty string);
-  external String? getAttribute(String name);
+  external JSString? getAttribute(JSString name);
 }
 
 /// A function which handles DOM events.
@@ -121,7 +111,7 @@ typedef EventHandler<T extends Event> = void Function(T event);
 /// {@endtemplate}
 @JS()
 @staticInterop
-abstract class Event {}
+abstract class Event extends JSObject {}
 
 /// {@macro amplify_secure_storage_dart.event}
 extension PropsEvent on Event {
@@ -135,31 +125,33 @@ extension PropsEvent on Event {
 /// {@endtemplate}
 @JS()
 @staticInterop
-abstract class EventTarget {}
+abstract class EventTarget extends JSObject {}
 
 /// {@macro worker_bee.js.interop.event_target}
 extension PropsEventTarget on EventTarget {
   /// Registers [listener] as a callback for events of type [type].
-  void addEventListener<T extends Event>(
+  void addEventListener(
     String type,
-    EventHandler<T> listener,
+    EventHandler<Event> listener,
   ) =>
-      js_util.callMethod(this, 'addEventListener', [
-        type,
-        allowInterop(listener),
-        false,
-      ]);
+      callMethod(
+        'addEventListener'.toJS,
+        type.toJS,
+        listener.toJS,
+        false.toJS,
+      );
 
   /// Removes [listener] as a callback for events of type [type].
-  void removeEventListener<T extends Event>(
+  void removeEventListener(
     String type,
-    EventHandler<T> listener,
+    EventHandler<Event> listener,
   ) =>
-      js_util.callMethod(this, 'removeEventListener', [
-        type,
-        allowInterop(listener),
-        false,
-      ]);
+      callMethod(
+        'removeEventListener'.toJS,
+        type.toJS,
+        listener.toJS,
+        false.toJS,
+      );
 }
 
 /// {@template worker_bee.js.interop.global_scope}
@@ -186,10 +178,11 @@ extension PropsGlobalScope on GlobalScope {
     Object? o, [
     List<Object>? transfer,
   ]) =>
-      js_util.callMethod(this, 'postMessage', [
-        js_util.jsify(o),
-        transfer?.map(js_util.jsify).toList(),
-      ]);
+      callMethod(
+        'postMessage'.toJS,
+        o.jsify(),
+        transfer?.map<JSAny?>((o) => o.jsify()).toList().toJS,
+      );
 }
 
 /// {@template worker_bee.js.interop.message_event}
@@ -202,16 +195,13 @@ abstract class MessageEvent extends Event {}
 /// {@macro worker_bee.js.interop.message_event}
 extension PropsMessageEvent on MessageEvent {
   /// The data sent by the message emitter.
-  Object? get data {
-    final Object? data = js_util.getProperty(this, 'data');
-    return js_util.dartify(data);
-  }
+  Object? get data => getProperty('data'.toJS)?.dartify();
 
   /// An array of [MessagePort] objects representing the ports associated with
   /// the channel the message is being sent through.
   List<MessagePort> get ports {
-    final Object ports = js_util.getProperty(this, 'ports');
-    return (js_util.dartify(ports) as List).cast<MessagePort>();
+    final ports = getProperty('ports'.toJS);
+    return (ports.dartify() as List).cast<MessagePort>();
   }
 }
 
@@ -229,8 +219,11 @@ extension PropsMessagePort on MessagePort {
   /// Fired when a MessagePort object receives a message.
   Stream<MessageEvent> get onMessage {
     final controller = StreamController<MessageEvent>();
-    addEventListener<MessageEvent>('message', controller.add);
-    addEventListener<MessageEvent>(
+    addEventListener(
+      'message',
+      (event) => controller.add(event as MessageEvent),
+    );
+    addEventListener(
       'messageerror',
       (event) {
         controller
@@ -248,19 +241,20 @@ extension PropsMessagePort on MessagePort {
     Object? o, [
     List<Object>? transfer,
   ]) =>
-      js_util.callMethod(this, 'postMessage', [
-        js_util.jsify(o),
-        transfer?.map(js_util.jsify).toList(),
-      ]);
+      callMethod(
+        'postMessage'.toJS,
+        o.jsify(),
+        transfer?.map<JSAny?>((o) => o.jsify()).toList().toJS,
+      );
 
   /// Starts the sending of messages queued on the port.
   ///
   /// Only needed when using `EventTarget.addEventListener`; it is implied when
   /// using [onMessage].
-  external void start();
+  external JSVoid start();
 
   /// Disconnects the port, so it is no longer active.
-  external void close();
+  external JSVoid close();
 }
 
 /// {@template worker_bee.js.interop.location}
@@ -274,11 +268,11 @@ abstract class Location {}
 /// {@macro worker_bee.js.interop.location}
 extension PropsLocation on Location {
   /// The entire URL.
-  external String get href;
+  external JSString get href;
 
   /// Returns a string containing the canonical form of the origin of the
   /// specific location.
-  external String get origin;
+  external JSString get origin;
 }
 
 /// {@template worker_bee.js.interop.worker_init}
@@ -291,7 +285,7 @@ extension PropsLocation on Location {
 abstract class WorkerInit {
   /// {@macro worker_bee.js.interop.worker_init}
   external factory WorkerInit({
-    String? type,
+    JSString? type,
   });
 }
 
@@ -303,7 +297,7 @@ abstract class WorkerInit {
 @staticInterop
 abstract class Worker extends EventTarget {
   /// {@macro worker_bee.js.interop.worker}
-  external factory Worker(String url, [WorkerInit? init]);
+  external factory Worker(JSString url, [WorkerInit? init]);
 }
 
 /// {@macro worker_bee.js.interop.worker}
@@ -311,23 +305,27 @@ extension PropsWorker on Worker {
   /// The error event of the Worker interface fires when an error occurs in the
   /// worker.
   set onError(EventHandler listener) {
-    js_util.setProperty(this, 'onerror', allowInterop(listener));
+    this['onerror'.toJS] = listener.toJS;
   }
 
   /// The `message` event is fired on a Worker object when the worker's parent
   /// receives a message from its worker.
   set onMessage(EventHandler<MessageEvent> listener) {
-    js_util.setProperty(this, 'onmessage', allowInterop(listener));
+    this['onmessage'.toJS] = listener.toJS;
   }
 
   /// Sends a message to the worker's inner scope.
-  external void postMessage(Object? o, [List<Object?>? transfer]);
+  void postMessage(Object? o, [List<Object?>? transfer]) => callMethod(
+        'postMessage'.toJS,
+        o.jsify(),
+        transfer?.map<JSAny?>((o) => o.jsify()).toList().toJS,
+      );
 
   /// Immediately terminates the Worker.
   ///
   /// This does not offer the worker an opportunity to finish its operations;
   /// it is stopped at once.
-  external void terminate();
+  external JSVoid terminate();
 }
 
 /// {@template worker_bee.js.interop.error_event}
@@ -341,10 +339,10 @@ abstract class ErrorEvent extends Event {}
 /// {@macro worker_bee.js.interop.error_event}
 extension PropsErrorEvent on ErrorEvent {
   /// The error object associated with the event.
-  external Object? get error;
+  external JSObject? get error;
 
   /// A string containing a human-readable error message describing the problem.
-  external String? get message;
+  external JSString? get message;
 }
 
 /// {@template worker_bee.js.interop.message_channel}
@@ -373,23 +371,5 @@ extension PropsMessageChannel on MessageChannel {
 @staticInterop
 abstract class JSON {
   /// Stringifies a JSON-like object.
-  external static String stringify(Object? object);
-}
-
-/// {@template worker_bee.js.interop.js_object}
-/// The base class for all JavaScript objects.
-/// {@endtemplate}
-@JS('Object')
-@staticInterop
-abstract class JSObject {
-  /// Returns an array of a given [object]'s own enumerable property names,
-  /// iterated in the same order that a normal loop would.
-  external static List<String> keys(Object object);
-
-  /// Returns the prototype (i.e. the value of the internal `[[Prototype]]`
-  /// property) of the specified [object].
-  external static Object? getPrototypeOf(Object? object);
-
-  /// The prototype of the JS `Object` class.
-  external static Object get prototype;
+  external static JSString stringify(JSObject? object);
 }

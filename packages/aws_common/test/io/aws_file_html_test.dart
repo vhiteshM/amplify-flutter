@@ -4,13 +4,14 @@
 @TestOn('browser')
 
 import 'dart:convert';
-import 'dart:html' as html;
+import 'dart:js_interop';
 import 'dart:typed_data';
 
 import 'package:async/async.dart';
 import 'package:aws_common/aws_common.dart';
 import 'package:aws_common/web.dart';
 import 'package:test/test.dart';
+import 'package:web/web.dart' as html;
 
 import 'utils.dart';
 
@@ -18,15 +19,13 @@ void main() {
   group('AWSFile html implementation', () {
     const testStringContent = 'I ❤️ Amplify, œ 小新';
     const testContentType = 'text/plain';
-    final testBytes = utf8.encode(testStringContent);
-    final testBlob = html.Blob([testBytes], testContentType);
-    final testFile = html.File(
-        [testBlob],
-        'test_file.txt',
-        {
-          'type': testBlob.type,
-        });
-    final testFilePath = html.Url.createObjectUrl(testFile);
+    final testBytes = utf8.encode(testStringContent) as Uint8List;
+    final testBlob = html.Blob(
+      [testBytes.toJS].toJS,
+      html.BlobPropertyBag(type: testContentType.toJS),
+    );
+    final testFile = html.File([testBlob.toJS].toJS, 'test_file.txt'.toJS);
+    final testFilePath = html.URL.createObjectURL(testFile as JSAny);
 
     group('getChunkedStreamReader() API', () {
       test('should return ChunkedStreamReader over html File', () async {
@@ -50,7 +49,7 @@ void main() {
       });
 
       test('should return ChunkedStreamReader over a file path', () async {
-        final awsFile = AWSFile.fromPath(testFilePath);
+        final awsFile = AWSFile.fromPath(testFilePath.toDart);
 
         expect(await awsFile.contentType, testContentType);
         expect(
@@ -116,7 +115,7 @@ void main() {
           'should resolve contentType from the blob that is resolved from the path',
           () async {
         final awsFile = AWSFilePlatform.fromPath(
-          testFilePath,
+          testFilePath.toDart,
         );
 
         expect(await awsFile.contentType, testFile.type);
@@ -187,7 +186,7 @@ void main() {
         'returns streams over the underlying file pointed by the path',
         () async {
           final bytesBuffer = BytesBuilder();
-          final awsFile = AWSFile.fromPath(testFilePath);
+          final awsFile = AWSFile.fromPath(testFilePath.toDart);
 
           final collectedBytes1 = await collectBytes(awsFile.openRead(0, 20));
           final collectedBytes2 = await collectBytes(awsFile.openRead(20));
