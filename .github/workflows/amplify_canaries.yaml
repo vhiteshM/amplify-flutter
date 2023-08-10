@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - main
+      - stable
+      - feat/**
+      - fix/**
+      - test/**
   pull_request:
     paths:
       - ".github/workflows/amplify_canaries.yaml"
