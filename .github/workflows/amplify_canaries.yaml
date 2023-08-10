@@ -1,5 +1,5 @@
 name: Amplify Canaries
-on
+on:
   push:
     branches:
       - main
