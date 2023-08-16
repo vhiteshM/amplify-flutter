@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:aft/aft.dart';
+import 'package:aft/src/constraints_checker.dart';
 import 'package:aft/src/options/glob_options.dart';
 import 'package:aws_common/aws_common.dart';
 import 'package:collection/collection.dart';
@@ -205,6 +206,26 @@ class PublishCommand extends AmplifyCommand with GlobOptions {
     if (packagesNeedingPublish.isEmpty) {
       logger.info('No packages need publishing!');
       return;
+    }
+
+    final constraintsChecker = PublishConstraintsChecker(
+      dryRun ? ConstraintsAction.update : ConstraintsAction.check,
+      repo.getPackageGraph(includeDevDependencies: true),
+    );
+    for (final package in packagesNeedingPublish) {
+      constraintsChecker.checkConstraints(package);
+    }
+    final mismatchedDependencies = constraintsChecker.mismatchedDependencies;
+    if (mismatchedDependencies.isNotEmpty) {
+      for (final mismatched in mismatchedDependencies) {
+        final (:package, :dependencyName, :message) = mismatched;
+        logger.error(
+          '${package.path}\n'
+          'Mismatched `$dependencyName`:\n'
+          '$message\n',
+        );
+      }
+      exit(1);
     }
 
     try {
