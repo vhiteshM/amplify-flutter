@@ -6729,6 +6729,7 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// import * as cache from '@actions/cache';
 
 
 
@@ -6746,6 +6747,7 @@ const require = (0,node_module__WEBPACK_IMPORTED_MODULE_6__.createRequire)(impor
 // Setup properties for JS interop in Dart.
 
 globalThis.self = globalThis;
+// globalThis.cache = cache;
 globalThis.core = /*#__PURE__*/ (_actions_core__WEBPACK_IMPORTED_MODULE_0___namespace_cache || (_actions_core__WEBPACK_IMPORTED_MODULE_0___namespace_cache = __nccwpck_require__.t(_actions_core__WEBPACK_IMPORTED_MODULE_0__, 2)));
 globalThis.exec = /*#__PURE__*/ (_actions_exec__WEBPACK_IMPORTED_MODULE_1___namespace_cache || (_actions_exec__WEBPACK_IMPORTED_MODULE_1___namespace_cache = __nccwpck_require__.t(_actions_exec__WEBPACK_IMPORTED_MODULE_1__, 2)));
 globalThis.HttpClient = _actions_http_client__WEBPACK_IMPORTED_MODULE_2__.HttpClient;
